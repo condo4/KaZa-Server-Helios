@@ -1,0 +1,3 @@
+module org.kazoe.helios
+plugin HeliosPlugin
+KaZaHelios 1.0 KaZaHelios.qml

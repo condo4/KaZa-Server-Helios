@@ -93,25 +93,30 @@ QtObject {
     property KaZaObject humitity: KaZaObject {
         name: root.name + ".humidity"
         value: helios.humidity
+        unit: "%"
     }
 
     property KaZaObject heliosInOutsideTemperature: KaZaObject {
         name: root.name + ".inOutsideTemperature"
         value: helios.inOutsideTemperature
+        unit: "°C"
     }
 
     property KaZaObject heliosOutOutsideTemperature: KaZaObject {
         name: root.name + ".outOutsideTemperature"
         value: helios.outOutsideTemperature
+        unit: "°C"
     }
 
     property KaZaObject heliosInInsideTemperature: KaZaObject {
         name: root.name + ".inInsideTemperature"
         value: helios.inInsideTemperature
+        unit: "°C"
     }
 
     property KaZaObject heliosoutInsideTemperature: KaZaObject {
         name: root.name + ".outInsideTemperature"
         value: helios.outInsideTemperature
+        unit: "°C"
     }
 }

@@ -15,8 +15,8 @@ const int SOCKET_TIMEOUT = 10000; // 10 seconds in milliseconds
 { \
     if(( res.to ## t () ) != ( d->m_##n )) \
     { \
-            d->m_##n = res.to ## t (); \
-            emit n ## Changed(); \
+        d->m_##n = res.to ## t (); \
+        emit n ## Changed(); \
     } \
 }
 
@@ -51,10 +51,12 @@ class HeliosPrivate {
     int m_forceModeTime;
 
     HeliosPrivate(Helios * helios):
-        q_ptr(helios) {}
+    q_ptr(helios) {}
 
     bool setVariable(const QString& varname, const QVariant& varval, const std::function<QString(const QVariant&)>& conversion = nullptr)
     {
+        qDebug() << "HELIOS: setVariable " << varname << " to " << varval;
+
         QString varcontent;
         if (conversion) {
             varcontent = conversion(varval);
@@ -117,8 +119,8 @@ class HeliosPrivate {
 };
 
 Helios::Helios(QObject *parent)
-    : QObject(parent)
-    , d_ptr(new HeliosPrivate(this))
+: QObject(parent)
+, d_ptr(new HeliosPrivate(this))
 {
     Q_D(Helios);
     QObject::connect(&d->m_timer,        &QTimer::timeout,                this, &Helios::refresh);
@@ -180,7 +182,7 @@ int Helios::operatingMode() const
 void Helios::setOperatingMode(int newOperatingMode)
 {
     Q_D(Helios);
-    qDebug() << "Set Operating mode " << newOperatingMode;
+    qDebug() << "HELIOS: Set Operating mode " << newOperatingMode;
     d->setVariable("v00101", newOperatingMode, [](const QVariant& val) { return QString::number(val.toInt()); });
 
     emit operatingModeChanged();
@@ -195,7 +197,7 @@ int Helios::fanStage() const
 void Helios::setFanStage(int newFanStage)
 {
     Q_D(Helios);
-    qDebug() << "Set Fan " << newFanStage;
+    qDebug() << "HELIOS: Set Fan " << newFanStage;
     d->setVariable("v00102", newFanStage, [](const QVariant& val) { return QString::number(val.toInt()); });
 
     emit fanStageChanged();
@@ -204,7 +206,7 @@ void Helios::setFanStage(int newFanStage)
 void Helios::setForceModeSpeed(int newModeSpeed)
 {
     Q_D(Helios);
-    qDebug() << "Set ForceModeSpeed " << newModeSpeed;
+    qDebug() << "HELIOS: Set ForceModeSpeed " << newModeSpeed;
     d->setVariable("v00092", newModeSpeed, [](const QVariant& val) { return QString::number(val.toInt()); });
 
     emit forceModeSpeedChanged();
@@ -213,7 +215,7 @@ void Helios::setForceModeSpeed(int newModeSpeed)
 void Helios::setForceTime(int newForceTime)
 {
     Q_D(Helios);
-    qDebug() << "Set ForceTime " << newForceTime;
+    qDebug() << "HELIOS: Set ForceTime " << newForceTime;
     d->setVariable("v00091", newForceTime, [](const QVariant& val) { return QString::number(val.toInt()); });
 
     emit forceModeSpeedChanged();
@@ -222,7 +224,7 @@ void Helios::setForceTime(int newForceTime)
 void Helios::setForceMode(int newForceMode)
 {
     Q_D(Helios);
-    qDebug() << "Set ForceMode " << newForceMode;
+    qDebug() << "HELIOS: Set ForceMode " << newForceMode;
     d->setVariable("v00094", newForceMode, [](const QVariant& val) { return QString::number(val.toInt()); });
 
     emit forceModeSpeedChanged();

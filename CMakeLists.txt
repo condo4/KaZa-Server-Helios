@@ -17,7 +17,7 @@ endif()
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 6.2 COMPONENTS Quick SerialBus REQUIRED)
+find_package(Qt6 6.2 COMPONENTS Quick REQUIRED)
 find_package(KaZa REQUIRED)
 include_directories(${KAZA_INCLUDE_DIR})
 
@@ -39,7 +39,7 @@ if(NOT DEFINED QML_MODULE_INSTALL_PATH)
 endif()
 
 target_compile_definitions(HeliosPlugin PRIVATE $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:QT_QML_DEBUG>)
-target_link_libraries(HeliosPlugin PRIVATE Qt6::Quick Qt6::SerialBus)
+target_link_libraries(HeliosPlugin PRIVATE Qt6::Quick)
 target_include_directories(HeliosPlugin PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 if(BUILD_EXAMPLE)
@@ -50,7 +50,7 @@ if(BUILD_EXAMPLE)
         VERSION 1.0
         QML_FILES example/example.qml example/HeliosControls.qml
     )
-    target_link_libraries(ExampleProject PRIVATE Qt6::Quick)
+    target_link_libraries(ExampleProject PRIVATE Qt6::Quick HeliosPlugin)
     target_compile_definitions(ExampleProject PRIVATE $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:QT_QML_DEBUG>)
 endif()
 

@@ -2,14 +2,9 @@
 #include <QVariant>
 #include <QTimer>
 #include <QNetworkAccessManager>
-#include <QNetworkReply>
-#include <QEventLoop>
-#include <QModbusTcpClient>
+
 
 const int TCP_PORT = 80;
-const int MODBUS_TCP_PORT = 502;
-const int KWL_UNIT_ID = 180;
-const int SOCKET_TIMEOUT = 10000; // 10 seconds in milliseconds
 
 #define REFRESH_ITEM(i, n, t) if(currentId == #i) \
 { \
@@ -53,9 +48,36 @@ class HeliosPrivate {
     HeliosPrivate(Helios * helios):
     q_ptr(helios) {}
 
-    bool setVariable(const QString& varname, const QVariant& varval, const std::function<QString(const QVariant&)>& conversion = nullptr)
+public:
+    bool setVariable(const QString& varname, const QVariant& varval, const std::function<QString(const QVariant&)>& conversion)
     {
-        qDebug() << "HELIOS: setVariable " << varname << " to " << varval;
+        QTcpSocket socket;
+        socket.connectToHost("helios", 80);
+        socket.waitForConnected();
+        QString postData = "v00402=helios";
+        QByteArray postDataBytes = postData.toUtf8();
+        QString httpRequest;
+        httpRequest += "POST /info.htm HTTP/1.1\r\n";
+        httpRequest += "Host: helios\r\n";
+        httpRequest += "Content-Type: application/x-www-form-urlencoded\r\n";
+        httpRequest += QString("Content-Length: %1\r\n").arg(postDataBytes.length());
+        httpRequest += "Connection: Keep-Alive\r\n";
+        httpRequest += "\r\n";
+        httpRequest += postData;
+        socket.write(httpRequest.toUtf8());
+        socket.flush();
+        QByteArray res;
+        while(!res.contains("</html>"))
+        {
+            socket.waitForReadyRead();
+            res.append(socket.readAll());
+        }
+
+
+        // Send Data
+        socket.waitForDisconnected();
+        socket.connectToHost("helios", 80);
+        socket.waitForConnected();
 
         QString varcontent;
         if (conversion) {
@@ -63,57 +85,30 @@ class HeliosPrivate {
         } else {
             varcontent = varval.toString();
         }
-        QString vardef = QString("%1=%2").arg(varname, varcontent);
-        QByteArray data = vardef.toUtf8();
-        int datalen = (data.size() + 2) / 2 * 2;
-        data.resize(datalen);
 
-        QModbusTcpClient modbusClient;
-        modbusClient.setConnectionParameter(QModbusDevice::NetworkAddressParameter, m_hostname);
-        modbusClient.setConnectionParameter(QModbusDevice::NetworkPortParameter, MODBUS_TCP_PORT);
-        modbusClient.setTimeout(SOCKET_TIMEOUT);
-        modbusClient.setNumberOfRetries(0);
+        postData = varname + "=" + varcontent;
+        postDataBytes = postData.toUtf8();
+        res.clear();
+        httpRequest.clear();
+        httpRequest += "POST /info.htm HTTP/1.1\r\n";
+        httpRequest += "Host: helios\r\n";
+        httpRequest += "Content-Type: application/x-www-form-urlencoded\r\n";
+        httpRequest += QString("Content-Length: %1\r\n").arg(postDataBytes.length());
+        httpRequest += "Connection: Keep-Alive\r\n";
+        httpRequest += "\r\n";
+        httpRequest += postData;
 
-        if (!modbusClient.connectDevice()) {
-            qDebug() << "Failed to connect to device:" << modbusClient.errorString();
-            return false;
-        }
+        socket.write(httpRequest.toUtf8());
+        socket.flush();
 
-        while( modbusClient.state() != QModbusDevice::ConnectedState)
+        while(!res.contains("</html>"))
         {
-            QEventLoop loop;
-            QObject::connect(&modbusClient, &QModbusDevice::stateChanged, &loop, &QEventLoop::quit);
-            loop.exec();
+            socket.waitForReadyRead();
+            res.append(socket.readAll());
         }
 
-        QModbusDataUnit writeUnit(QModbusDataUnit::RegisterType::HoldingRegisters, 1, datalen / 2);
-        for (int i = 0; i < datalen; i += 2) {
-            quint16 value = (static_cast<quint8>(data[i]) << 8) | static_cast<quint8>(data[i + 1]);
-            writeUnit.setValue(i / 2, value);
-        }
-
-        QModbusReply* reply = modbusClient.sendWriteRequest(writeUnit, KWL_UNIT_ID);
-        if (!reply) {
-            qDebug() << "Failed to send write request:" << modbusClient.errorString();
-            return false;
-        }
-
-        if (!reply->isFinished()) {
-            QEventLoop loop;
-            QObject::connect(reply, &QModbusReply::finished, &loop, &QEventLoop::quit);
-            loop.exec();
-        }
-
-        if (reply->error() != QModbusDevice::NoError) {
-            qDebug() << "Write error:" << reply->errorString();
-            reply->deleteLater();
-            return false;
-        }
-
-        reply->deleteLater();
         return true;
     }
-
 
     friend class Helios;
 };
@@ -124,7 +119,7 @@ Helios::Helios(QObject *parent)
 {
     Q_D(Helios);
     QObject::connect(&d->m_timer,        &QTimer::timeout,                this, &Helios::refresh);
-    qDebug() << "Helios integration loaded";
+    qDebug() << "Helios integration loaded ...";
 }
 
 
@@ -230,40 +225,86 @@ void Helios::setForceMode(int newForceMode)
     emit forceModeSpeedChanged();
 }
 
+
 void Helios::refresh()
 {
     Q_D(Helios);
-    // Autentication
-    QEventLoop loop;
-    QNetworkRequest request(QUrl(QString("http://%1:%2/info.htm").arg(d->m_hostname).arg(d->m_port)));
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
-    QByteArray postData = "v00402=helios";
-    QNetworkReply *reply = d->m_manager.post(request, postData);
-    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-    loop.exec();
-    reply->deleteLater();
-
-    // Data request werte8
-    request.setUrl(QUrl(QString("http://%1:%2/data/werte8.xml").arg(d->m_hostname).arg(d->m_port)));
-    postData = QString("xml=/data/werte8.xml").toUtf8();
-    reply = d->m_manager.post(request, postData);
-
-    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-    loop.exec();
-
-    reply->deleteLater();
-    _parseWerte("werte8", reply->readAll());
+    QTcpSocket socket;
+    socket.connectToHost("helios", 80);
+    socket.waitForConnected();
+    QString postData = "v00402=helios";
+    QByteArray postDataBytes = postData.toUtf8();
+    QString httpRequest;
+    httpRequest += "POST /info.htm HTTP/1.1\r\n";
+    httpRequest += "Host: helios\r\n";
+    httpRequest += "Content-Type: application/x-www-form-urlencoded\r\n";
+    httpRequest += QString("Content-Length: %1\r\n").arg(postDataBytes.length());
+    httpRequest += "Connection: Keep-Alive\r\n";
+    httpRequest += "\r\n";
+    httpRequest += postData;
+    socket.write(httpRequest.toUtf8());
+    socket.flush();
+    QByteArray res;
+    while(!res.contains("</html>"))
+    {
+        socket.waitForReadyRead();
+        res.append(socket.readAll());
+    }
 
     // Data request werte3
-    request.setUrl(QUrl(QString("http://%1:%2/data/werte3.xml").arg(d->m_hostname).arg(d->m_port)));
-    postData = QString("xml=/data/werte3.xml").toUtf8();
-    reply = d->m_manager.post(request, postData);
+    socket.waitForDisconnected();
+    socket.connectToHost("helios", 80);
+    socket.waitForConnected();
 
-    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-    loop.exec();
+    postData = "xml=/data/werte8.xml";
+    postDataBytes = postData.toUtf8();
+    res.clear();
+    httpRequest.clear();
+    httpRequest += "POST /data/werte8.xml HTTP/1.1\r\n";
+    httpRequest += "Host: helios\r\n";
+    httpRequest += "Content-Type: application/x-www-form-urlencoded\r\n";
+    httpRequest += QString("Content-Length: %1\r\n").arg(postDataBytes.length());
+    httpRequest += "Connection: Keep-Alive\r\n";
+    httpRequest += "\r\n";
+    httpRequest += postData;
 
-    reply->deleteLater();
-    _parseWerte("werte3", reply->readAll());
+    socket.write(httpRequest.toUtf8());
+    socket.flush();
+
+    while(!res.contains("</PARAMETER>"))
+    {
+        socket.waitForReadyRead();
+        res.append(socket.readAll());
+    }
+
+    _parseWerte("werte8", res.mid(res.indexOf("<?xml")));
+
+    // Data request werte3
+    //qDebug() << "Start werte3" << socket.state();
+    socket.waitForDisconnected();
+    socket.connectToHost("helios", 80);
+    socket.waitForConnected();
+    postData = "xml=/data/werte3.xml";
+    postDataBytes = postData.toUtf8();
+    res.clear();
+    httpRequest.clear();
+    httpRequest += "POST /data/werte3.xml HTTP/1.1\r\n";
+    httpRequest += "Host: helios\r\n";
+    httpRequest += "Content-Type: application/x-www-form-urlencoded\r\n";
+    httpRequest += QString("Content-Length: %1\r\n").arg(postDataBytes.length());
+    httpRequest += "Connection: Keep-Alive\r\n";
+    httpRequest += "\r\n";
+    httpRequest += postData;
+
+    socket.write(httpRequest.toUtf8());
+    socket.flush();
+
+    while(!res.contains("</PARAMETER>"))
+    {
+        socket.waitForReadyRead();
+        res.append(socket.readAll());
+    }
+    _parseWerte("werte3", res.mid(res.indexOf("<?xml")));
 }
 
 void Helios::_parseWerte(const QString id, const QString &data)

@@ -12,8 +12,8 @@ Window {
 
     HeliosControls {
         id: controls
-        hostname: "192.168.1.222"
-        refreshRate: 1
+        hostname: "helios"
+        refreshRate: 5
         anchors.fill: parent
     }
 }

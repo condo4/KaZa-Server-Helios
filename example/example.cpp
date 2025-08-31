@@ -1,8 +1,8 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QtQml/qqmlextensionplugin.h>
-
-//Q_IMPORT_QML_PLUGIN(QHeliosPlugin)
+#include "../src/helios.h"
+#include <qqml.h>
 
 int main(int argc, char *argv[])
 {
@@ -21,6 +21,7 @@ int main(int argc, char *argv[])
                 QCoreApplication::exit(-1);
         },
         Qt::QueuedConnection);
+    qmlRegisterType<Helios>("test.helios", 1, 0, "Helios");
     engine.load(url);
 
     return app.exec();

@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Layouts 1.15
 import QtQuick.Controls 2.15
-import org.kazoe.helios 1.0
+import test.helios 1.0
 
 Item {
     id: root

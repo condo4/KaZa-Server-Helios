@@ -252,9 +252,17 @@ void Helios::refresh()
     }
 
     // Data request werte3
-    socket.waitForDisconnected();
+    if (socket.state() != QAbstractSocket::UnconnectedState) {
+        socket.disconnectFromHost();
+        if (socket.state() != QAbstractSocket::UnconnectedState) {
+            socket.waitForDisconnected(1000);
+        }
+    }
     socket.connectToHost("helios", 80);
-    socket.waitForConnected();
+    if (!socket.waitForConnected(5000)) { // timeout 5s
+        qDebug() << "HELIOS: Connexion error:" << socket.errorString();
+        return;
+    }
 
     postData = "xml=/data/werte8.xml";
     postDataBytes = postData.toUtf8();
@@ -273,7 +281,10 @@ void Helios::refresh()
 
     while(!res.contains("</PARAMETER>"))
     {
-        socket.waitForReadyRead();
+        if (!socket.waitForReadyRead(5000)) {
+            qDebug() << "HELIOS: Read Timeout";
+            break;
+        }
         res.append(socket.readAll());
     }
 
@@ -281,9 +292,17 @@ void Helios::refresh()
 
     // Data request werte3
     //qDebug() << "Start werte3" << socket.state();
-    socket.waitForDisconnected();
+    if (socket.state() != QAbstractSocket::UnconnectedState) {
+        socket.disconnectFromHost();
+        if (socket.state() != QAbstractSocket::UnconnectedState) {
+            socket.waitForDisconnected(1000);
+        }
+    }
     socket.connectToHost("helios", 80);
-    socket.waitForConnected();
+    if (!socket.waitForConnected(5000)) { // timeout 5s
+        qDebug() << "Erreur connexion:" << socket.errorString();
+        return;
+    }
     postData = "xml=/data/werte3.xml";
     postDataBytes = postData.toUtf8();
     res.clear();
@@ -301,10 +320,20 @@ void Helios::refresh()
 
     while(!res.contains("</PARAMETER>"))
     {
-        socket.waitForReadyRead();
+        if (!socket.waitForReadyRead(5000)) {
+            qDebug() << "HELIOS: Read Timeout";
+            break;
+        }
         res.append(socket.readAll());
     }
     _parseWerte("werte3", res.mid(res.indexOf("<?xml")));
+
+    if (socket.state() != QAbstractSocket::UnconnectedState) {
+        socket.disconnectFromHost();
+        if (socket.state() != QAbstractSocket::UnconnectedState) {
+            socket.waitForDisconnected(1000);
+        }
+    }
 }
 
 void Helios::_parseWerte(const QString id, const QString &data)
